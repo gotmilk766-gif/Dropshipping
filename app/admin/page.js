@@ -4,20 +4,58 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import AdminGate from "@/components/AdminGate";
 import { useProducts } from "@/lib/useProducts";
-import { isSupabaseConfigured } from "@/lib/supabaseClient";
+import { isSupabaseConfigured, supabase } from "@/lib/supabaseClient";
+import { getAdminUser, signOutAdmin } from "@/lib/authClient";
 import { formatDate, formatPrice } from "@/lib/utils";
 
 function Dashboard() {
   const { products } = useProducts();
   const [orders, setOrders] = useState([]);
+  const [user, setUser] = useState(null);
+  const [ordersSource, setOrdersSource] = useState("demo");
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      setOrders(
-        JSON.parse(window.localStorage.getItem("nexus_orders") || "[]")
-      );
-    }, 0);
-    return () => clearTimeout(t);
+    let cancelled = false;
+
+    (async () => {
+      if (isSupabaseConfigured) {
+        const { user: current } = await getAdminUser();
+        if (!cancelled) setUser(current);
+
+        // Real orders straight from the database.
+        const { data, error } = await supabase
+          .from("orders")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (!cancelled && !error && data) {
+          setOrders(
+            data.map((o) => ({
+              id: o.stripe_session_id || o.id,
+              customer: o.customer || {},
+              items: o.items || [],
+              total: Number(o.total) || 0,
+              status: o.status,
+              createdAt: o.created_at,
+            }))
+          );
+          setOrdersSource("supabase");
+          return;
+        }
+      }
+      if (cancelled) return;
+      // Demo mode (or DB read failed): local records.
+      const t = setTimeout(() => {
+        setOrders(
+          JSON.parse(window.localStorage.getItem("nexus_orders") || "[]")
+        );
+      }, 0);
+      return () => clearTimeout(t);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const revenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
@@ -28,7 +66,19 @@ function Dashboard() {
         <h1 className="font-heading text-xl font-bold text-ink">
           Admin Dashboard
         </h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {user && (
+            <span className="text-xs text-muted">{user.email}</span>
+          )}
+          {user && (
+            <button
+              type="button"
+              onClick={() => signOutAdmin()}
+              className="rounded-full border border-line bg-background px-3 py-2 text-xs font-bold text-muted transition hover:border-ink hover:text-ink"
+            >
+              Sign out
+            </button>
+          )}
           <Link
             href="/admin/upload"
             className="rounded-full bg-white px-4 py-2.5 text-sm font-bold text-[#101820] transition hover:bg-white/85"
@@ -69,14 +119,20 @@ function Dashboard() {
           </p>
         </div>
         <div className="rounded-xl border border-line bg-[#16202b] p-5">
-          <p className="text-xs text-muted">Orders (this device)</p>
+          <p className="text-xs text-muted">
+            Orders {ordersSource === "supabase" ? "" : "(this device)"}
+          </p>
           <p className="font-heading mt-1 text-3xl font-black text-ink">
             {orders.length}
           </p>
-          <p className="mt-1 text-xs text-muted">demo checkout records</p>
+          <p className="mt-1 text-xs text-muted">
+            {ordersSource === "supabase"
+              ? "live records from Stripe payments"
+              : "demo checkout records"}
+          </p>
         </div>
         <div className="rounded-xl border border-line bg-[#16202b] p-5">
-          <p className="text-xs text-muted">Revenue (demo)</p>
+          <p className="text-xs text-muted">Revenue {ordersSource === "supabase" ? "" : "(demo)"}</p>
           <p className="font-heading mt-1 text-3xl font-black text-accent">
             {formatPrice(revenue)}
           </p>

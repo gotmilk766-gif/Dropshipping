@@ -26,7 +26,7 @@ Open **http://localhost:3000** — the store is fully browsable with demo data.
 | Download a digital item | Success page → Download (placeholder file) |
 | Order history | `/account` |
 | Customer service | Floating support button + `/contact` (form + FAQ) |
-| Admin panel | `/admin` → PIN: **`admin123`** → add a product → it appears on the homepage |
+| Admin panel | `/admin` → demo PIN **`admin123`** (or Supabase email login once connected) → add a product → it appears on the homepage |
 
 ---
 
@@ -67,51 +67,24 @@ lib/
 ### 1. Supabase (free)
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. In the SQL Editor, create the tables:
+2. In **SQL Editor → New query**, paste the contents of [`supabase/schema.sql`](supabase/schema.sql) and run it. It creates the `products` and `orders` tables, all RLS policies, and both storage buckets (`products` public, `digital-files` private). Safe to re-run.
+3. Copy `.env.example` → `.env.local` and fill in:
+   - `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (Dashboard → Project Settings → API)
+   - `SUPABASE_SERVICE_ROLE_KEY` (same page — **server-only**, never expose to the browser)
+4. Enable **Authentication → Email** (leave "Confirm email" on) and create your admin user under **Authentication → Users → Add user**.
+5. **Lock down who counts as an admin:** the schema's `admins` table is an allowlist — RLS grants write access only to emails in it. Edit the `insert into admins (email) values ('admin@nexusstore.ph')` line in `supabase/schema.sql` to your real email **before running it**, or add rows later from the Table Editor. Anyone who registers but isn't in the allowlist can read the catalog but can never publish products or view orders.
 
-```sql
-create table products (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  type text not null check (type in ('physical', 'digital', 'dropship')),
-  category text not null,
-  price numeric not null,
-  original_price numeric,
-  stock integer not null default 0,
-  sold integer not null default 0,
-  rating numeric not null default 5,
-  flash_sale boolean not null default false,
-  description text,
-  features jsonb default '[]'::jsonb,
-  image_url text,
-  file_url text,               -- digital products: private storage path
-  created_at timestamptz not null default now()
-);
+**Admin login:** with keys configured, `/admin` shows a real email/password sign-in (Supabase Auth sessions). The demo PIN is used only when Supabase is not configured. Signed-in admins publish products straight into the `products` table and see live Stripe orders on the dashboard.
 
-create table orders (
-  id uuid primary key default gen_random_uuid(),
-  stripe_session_id text,
-  customer jsonb not null,
-  items jsonb not null,
-  total numeric not null,
-  status text not null default 'paid',
-  created_at timestamptz not null default now()
-);
+That's it — no code changes needed. The data layer switches on automatically:
 
--- RLS: anyone can read products; only authed admins write
-alter table products enable row level security;
-alter table orders enable row level security;
-create policy "public read products" on products for select using (true);
-create policy "admin insert products" on products for insert
-  with check (auth.role() = 'authenticated');
-create policy "admin read orders" on orders for select
-  using (auth.role() = 'authenticated');
-```
+| What | Where | Behavior without keys | With keys |
+| --- | --- | --- | --- |
+| Catalog | `GET /api/products` | demo catalog | reads `products` table |
+| Checkout prices | `app/api/checkout` | demo catalog (still server-resolved) | reads `products` table — client-sent prices are **always ignored** |
+| Order records | `app/api/webhook` | not configured | inserts into `orders` on `checkout.session.completed` |
 
-3. Enable **Authentication → Email** and add your admin user.
-4. Create Storage buckets: `products` (public, product images) and `digital-files` (private, actual template files).
-5. Copy `.env.example` → `.env.local` and add `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-6. Swap `useProducts()` (lib/useProducts.js) for a server-side Supabase query of the `products` table.
+If a Supabase read ever fails (e.g. schema not run yet), the API routes degrade to the demo catalog instead of showing an empty store.
 
 ### 2. Stripe (free, per-sale fees only)
 

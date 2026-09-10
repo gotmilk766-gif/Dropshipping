@@ -5,6 +5,7 @@ import Link from "next/link";
 import AdminGate from "@/components/AdminGate";
 import { CATEGORIES, PRODUCT_TYPES, slugify } from "@/lib/products";
 import { formatPrice, placeholderImage } from "@/lib/utils";
+import { supabase, isSupabaseConfigured } from "@/lib/supabaseClient";
 
 const inputCls =
   "w-full rounded-lg border border-line bg-background px-4 py-2.5 text-sm text-ink placeholder-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/30";
@@ -21,18 +22,20 @@ function UploadForm() {
   });
   const [done, setDone] = useState(null);
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
-  function publish(e) {
+  async function publish(e) {
     e.preventDefault();
     if (!form.name.trim() || !form.price) {
       setError("Name and price are required.");
       return;
     }
     setError("");
-    const product = {
-      id: `${slugify(form.name)}-${Date.now().toString(36)}`,
+    setBusy(true);
+
+    const base = {
       name: form.name.trim(),
       type: form.type,
       category: form.category,
@@ -47,23 +50,57 @@ function UploadForm() {
         "Newly added product — update this description from the admin panel.",
       features: [],
     };
-    const existing = JSON.parse(
-      window.localStorage.getItem("nexus_demo_products") || "[]"
-    );
-    window.localStorage.setItem(
-      "nexus_demo_products",
-      JSON.stringify([product, ...existing])
-    );
-    setDone(product);
-    setForm({
-      name: "",
-      type: "physical",
-      category: "3d-prints",
-      price: "",
-      originalPrice: "",
-      stock: "10",
-      description: "",
-    });
+
+    try {
+      let saved;
+      if (isSupabaseConfigured) {
+        // Live mode: insert into the `products` table. Slug is unique — on a
+        // collision, append a short suffix and retry once.
+        const slug = slugify(base.name);
+        let { data, error: insErr } = await supabase
+          .from("products")
+          .insert({ ...base, slug })
+          .select()
+          .single();
+        if (insErr && insErr.code === "23505") {
+          ({ data, error: insErr } = await supabase
+            .from("products")
+            .insert({ ...base, slug: `${slug}-${Date.now().toString(36)}` })
+            .select()
+            .single());
+        }
+        if (insErr) throw insErr;
+        saved = { ...data, id: data.slug || data.id };
+      } else {
+        // Demo mode: save to localStorage as before.
+        const product = {
+          ...base,
+          id: `${slugify(base.name)}-${Date.now().toString(36)}`,
+        };
+        const existing = JSON.parse(
+          window.localStorage.getItem("nexus_demo_products") || "[]"
+        );
+        window.localStorage.setItem(
+          "nexus_demo_products",
+          JSON.stringify([product, ...existing])
+        );
+        saved = product;
+      }
+      setDone(saved);
+      setForm({
+        name: "",
+        type: "physical",
+        category: "3d-prints",
+        price: "",
+        originalPrice: "",
+        stock: "10",
+        description: "",
+      });
+    } catch (err) {
+      setError(err.message || "Could not publish the product. Try again.");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -75,10 +112,16 @@ function UploadForm() {
         </Link>
       </div>
 
-      <div className="mt-4 rounded-lg bg-amber-500/10 px-4 py-3 text-xs leading-5 text-amber-300">
-        Demo mode: this product is saved to your browser and appears on the
-        homepage immediately. With Supabase connected, this form uploads to
-        your database + storage instead.
+      <div
+        className={`mt-4 rounded-lg px-4 py-3 text-xs leading-5 ${
+          isSupabaseConfigured
+            ? "bg-emerald-500/10 text-emerald-400"
+            : "bg-amber-500/10 text-amber-300"
+        }`}
+      >
+        {isSupabaseConfigured
+          ? "Live mode: products publish straight to your Supabase database and appear store-wide."
+          : "Demo mode: this product is saved to your browser and appears on the homepage immediately. Add your Supabase keys to publish to the database instead."}
       </div>
 
       {done && (
@@ -229,9 +272,10 @@ function UploadForm() {
 
         <button
           type="submit"
-          className="w-full rounded-full bg-white py-3 text-sm font-bold text-[#101820] transition hover:bg-white/85"
+          disabled={busy}
+          className="w-full rounded-full bg-white py-3 text-sm font-bold text-[#101820] transition hover:bg-white/85 disabled:opacity-60"
         >
-          Publish Product
+          {busy ? "Publishing…" : "Publish Product"}
         </button>
       </form>
     </main>
