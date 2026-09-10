@@ -72,7 +72,12 @@ lib/
    - `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` (Dashboard → Project Settings → API)
    - `SUPABASE_SERVICE_ROLE_KEY` (same page — **server-only**, never expose to the browser)
 4. Enable **Authentication → Email** (leave "Confirm email" on) and create your admin user under **Authentication → Users → Add user**.
-5. **Lock down who counts as an admin:** the schema's `admins` table is an allowlist — RLS grants write access only to emails in it. Edit the `insert into admins (email) values ('admin@nexusstore.ph')` line in `supabase/schema.sql` to your real email **before running it**, or add rows later from the Table Editor. Anyone who registers but isn't in the allowlist can read the catalog but can never publish products or view orders.
+5. **Seed the catalog:**
+   ```bash
+   npm run seed -- --admin you@example.com
+   ```
+   Upserts the 12 demo products into `products` (idempotent — re-run to refresh) and adds your admin email to the `admins` allowlist. Requires `NEXT_PUBLIC_SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
+6. **Lock down who counts as an admin:** the schema's `admins` table is an allowlist — RLS grants write access only to emails in it. The seed's `--admin` flag adds yours; you can also edit the `insert into admins (email) values ('admin@nexusstore.ph')` line in `supabase/schema.sql` **before running it**, or manage rows later from the Table Editor. Anyone who registers but isn't in the allowlist can read the catalog but can never publish products or view orders.
 
 **Admin login:** with keys configured, `/admin` shows a real email/password sign-in (Supabase Auth sessions). The demo PIN is used only when Supabase is not configured. Signed-in admins publish products straight into the `products` table and see live Stripe orders on the dashboard.
 
