@@ -32,9 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
+
+# local machine / tooling
+.freebuff/
+
+# local ComfyUI clones (20GB+, have their own .git)
+/comfyUI/
 
 # typescript
 *.tsbuildinfo
