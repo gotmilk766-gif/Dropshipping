@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { DEMO_PRODUCTS } from "@/lib/products";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,12 @@ function getReadClient() {
   });
 }
 
-export async function GET() {
+export async function GET(request) {
+  // Abuse guard: lenient cap for a public read endpoint (scraping bursts).
+  // The homepage polls this on every visit — 120/min per IP is plenty.
+  const rl = rateLimit(request, { name: "products", limit: 120, windowMs: 60_000 });
+  if (!rl.ok) return tooManyRequests(rl);
+
   const supabase = getReadClient();
 
   if (!supabase) {

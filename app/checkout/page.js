@@ -77,6 +77,18 @@ export default function CheckoutPage() {
       });
       const data = await res.json();
 
+      if (res.status === 409 && Array.isArray(data.outOfStock)) {
+        const lines = data.outOfStock
+          .map((o) => `“${o.name}” — requested ${o.requested}, only ${o.available} left`)
+          .join("\n");
+        setError(
+          data.error ||
+            `Not enough stock:\n${lines}\nPlease lower the quantity and try again.`
+        );
+        setStatus("idle");
+        return;
+      }
+
       if (data.demo && data.orderId) {
         // Demo mode: record the order locally and show the success page.
         const order = {
@@ -186,7 +198,7 @@ export default function CheckoutPage() {
               Order&quot; completes the order instantly.
             </p>
             {error && (
-              <p className="mt-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
+              <p className="mt-3 whitespace-pre-line rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-400">
                 {error}
               </p>
             )}

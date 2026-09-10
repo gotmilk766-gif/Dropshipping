@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { DEMO_PRODUCTS } from "@/lib/products";
+import { rateLimit, tooManyRequests } from "@/lib/rateLimit";
 
 // POST /api/checkout
 // Demo mode (no STRIPE_SECRET_KEY): returns { demo: true, orderId } and the
@@ -13,6 +14,11 @@ import { DEMO_PRODUCTS } from "@/lib/products";
 // is configured, prices come from the `products` table; otherwise from the
 // built-in demo catalog. Client-sent prices are ignored, so totals can't be
 // tampered with from the browser.
+//
+// STOCK: physical & dropship quantities are checked against remaining
+// inventory (aggregated across duplicate line items). Overselling requests
+// are rejected with 409 + an outOfStock[] payload the UI can render.
+// Digital products are exempt — they're unlimited by nature.
 
 export const dynamic = "force-dynamic";
 
@@ -29,13 +35,15 @@ function getReadClient() {
   });
 }
 
-// Resolve authoritative prices for the requested items.
+// Resolve authoritative prices + stock for the requested items.
 // Accepts items keyed by slug (demo ids / product pages) or uuid.
 async function resolvePrices(items) {
   const supabase = getReadClient();
 
   if (supabase) {
-    const { data, error } = await supabase.from("products").select("id, slug, name, price, type");
+    const { data, error } = await supabase
+      .from("products")
+      .select("id, slug, name, price, type, stock");
     if (!error && data && data.length) {
       const byKey = new Map();
       for (const p of data) {
@@ -46,7 +54,13 @@ async function resolvePrices(items) {
       for (const item of items) {
         const p = byKey.get(item.productId);
         if (!p) return null; // unknown product — reject the whole order
-        resolved.push({ ...item, name: p.name, price: Number(p.price), type: p.type });
+        resolved.push({
+          ...item,
+          name: p.name,
+          price: Number(p.price),
+          type: p.type,
+          stock: p.stock === null || p.stock === undefined ? null : Number(p.stock),
+        });
       }
       return resolved;
     }
@@ -58,12 +72,64 @@ async function resolvePrices(items) {
   for (const item of items) {
     const p = byKey.get(item.productId);
     if (!p) return null;
-    resolved.push({ ...item, name: p.name, price: p.price, type: p.type });
+    resolved.push({
+      ...item,
+      name: p.name,
+      price: p.price,
+      type: p.type,
+      stock: p.stock ?? null,
+    });
   }
   return resolved;
 }
 
+// Reject overselling. Quantities are aggregated per product so two line
+// items for the same slug can't slip past a stock of N combined.
+// Returns null when everything is in stock, or a 409 payload listing the
+// offending items.
+function checkStock(priced) {
+  const totals = new Map();
+  for (const item of priced) {
+    if (item.type === "digital") continue; // unlimited downloads
+    if (item.stock === null) continue; // no stock tracked — allow
+    const key = item.productId;
+    totals.set(key, (totals.get(key) || 0) + item.qty);
+  }
+
+  const outOfStock = [];
+  for (const item of priced) {
+    if (item.type === "digital" || item.stock === null) continue;
+    const requested = totals.get(item.productId) || 0;
+    if (requested > item.stock) {
+      const existing = outOfStock.find((o) => o.productId === item.productId);
+      if (!existing) {
+        outOfStock.push({
+          productId: item.productId,
+          name: item.name,
+          requested,
+          available: item.stock,
+        });
+      }
+    }
+  }
+
+  if (outOfStock.length === 0) return null;
+  return {
+    error:
+      outOfStock.length === 1
+        ? `Only ${outOfStock[0].available} left of "${outOfStock[0].name}" — please lower the quantity.`
+        : "Some items in your cart exceed remaining stock.",
+    outOfStock,
+  };
+}
+
 export async function POST(request) {
+  // Abuse guard: strictly bound checkout attempts per IP (card-testing
+  // floods hit exactly this endpoint). 10/min is far above any human
+  // checkout pace.
+  const rl = rateLimit(request, { name: "checkout", limit: 10, windowMs: 60_000 });
+  if (!rl.ok) return tooManyRequests(rl);
+
   let body;
   try {
     body = await request.json();
@@ -94,6 +160,12 @@ export async function POST(request) {
       { error: "One or more items in your cart are no longer available." },
       { status: 400 }
     );
+  }
+
+  // Enforce remaining inventory before anything is charged.
+  const stockProblem = checkStock(priced);
+  if (stockProblem) {
+    return NextResponse.json(stockProblem, { status: 409 });
   }
 
   const secret = process.env.STRIPE_SECRET_KEY;
