@@ -4,7 +4,6 @@ import "lenis/dist/lenis.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import CustomerServiceWidget from "@/components/CustomerServiceWidget";
-import CustomCursor from "@/components/CustomCursor";
 import Preloader from "@/components/Preloader";
 import SmoothScroll from "@/components/SmoothScroll";
 import { CartProvider } from "@/context/CartContext";
@@ -48,7 +47,6 @@ export default function RootLayout({ children }) {
           <div className="flex-1">{children}</div>
           <Footer />
           <CustomerServiceWidget />
-          <CustomCursor />
         </CartProvider>
       </body>
     </html>
