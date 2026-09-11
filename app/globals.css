@@ -9,7 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-body), system-ui, -apple-system, sans-serif;
-  --font-heading: var(--font-heading), Georgia, serif;
+  --font-heading: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
 
   /* mdx.so-inspired palette (dark, cinematic, editorial) */
   --color-brand: #ff8200; /* orange accent */
@@ -40,7 +40,7 @@ h2,
 h3,
 h4,
 .font-heading {
-  font-family: var(--font-heading), Georgia, serif;
+  font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
 }
 
 ::selection {
@@ -190,8 +190,26 @@ h4,
   transform: scale(1.05);
 }
 
+/* Floating accent dots in the 3D hero (HeroBand3D) */
+@keyframes hero3d-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+.hero3d-float {
+  animation: hero3d-float 6s var(--ease-out) infinite;
+  will-change: transform;
+}
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .hero3d-float {
+    animation: none !important;
+  }
   [data-reveal] {
     opacity: 1 !important;
     transform: none !important;

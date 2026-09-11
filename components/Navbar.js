@@ -35,7 +35,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      <header className="sticky top-0 z-40 border-b border-line bg-background/85 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-line bg-background/70 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60">
         <div className="mx-auto w-full max-w-[1200px] px-4">
           <div className="flex items-center justify-between gap-4 py-3">
             <Link
@@ -45,12 +45,12 @@ export default function Navbar() {
               NEXUS<span className="text-accent">.</span>
             </Link>
 
-            <nav className="hidden items-center gap-6 text-sm text-muted lg:flex">
+            <nav className="hidden items-center gap-1 rounded-full border border-line bg-white/[0.04] p-1 text-sm text-muted lg:flex">
               {NAV_LINKS.map((l) => (
                 <Link
                   key={l.href + l.label}
                   href={l.href}
-                  className="transition hover:text-ink"
+                  className="rounded-full px-3 py-1.5 font-medium transition hover:bg-white/[0.06] hover:text-ink"
                 >
                   {l.label}
                 </Link>

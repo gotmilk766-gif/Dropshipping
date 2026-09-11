@@ -1,21 +1,16 @@
 "use client";
 
-import HeroBand from "@/components/HeroBand";
+import HeroBand from "@/components/HeroBand3D";
 import MarqueeBand from "@/components/MarqueeBand";
 import FeelingSection from "@/components/FeelingSection";
 import ServicesBand from "@/components/ServicesBand";
-import Spotlight from "@/components/Spotlight";
+import FlashSale from "@/components/FlashSale";
 import Testimonials from "@/components/Testimonials";
 import GetStartedBand from "@/components/GetStartedBand";
 import { useProducts } from "@/lib/useProducts";
 
 export default function HomePage() {
   const { products, loaded } = useProducts();
-
-  // Two flagship products featured in the "NEW · JUST RELEASED" blocks.
-  const spotlight = loaded
-    ? products.filter((p) => p.spotlight).slice(0, 2)
-    : [];
 
   return (
     <main>
@@ -46,7 +41,7 @@ export default function HomePage() {
         duration={30}
         tone="#101820"
       />
-      <Spotlight products={spotlight} />
+      <FlashSale products={products} loaded={loaded} />
       <Testimonials />
       <GetStartedBand />
     </main>
