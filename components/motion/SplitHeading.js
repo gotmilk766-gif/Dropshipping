@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 
 // mdx.so-style split-text heading: each line is broken into words, each
 // word sits inside an overflow-hidden column, and when the heading scrolls
@@ -51,15 +51,17 @@ export default function SplitHeading({
     <Tag ref={ref} className={`${inView ? "in-view" : ""} ${className}`}>
       {lines.map((line, li) => (
         <span key={li} className="mask-line">
-          {line.split(" ").map((word, wi) => {
+          {line.split(" ").map((word, wi, words) => {
             const idx = wordIndex++;
             return (
-              <span key={`${li}-${wi}`} className="mask-word">
-                <span style={{ transitionDelay: `${baseDelay + idx * stagger}ms` }}>
-                  {word}
+              <Fragment key={`${li}-${wi}`}>
+                <span className="mask-word">
+                  <span style={{ transitionDelay: `${baseDelay + idx * stagger}ms` }}>
+                    {word}
+                  </span>
                 </span>
-                {wi < line.split(" ").length - 1 ? " " : ""}
-              </span>
+                {wi < words.length - 1 ? " " : ""}
+              </Fragment>
             );
           })}
         </span>

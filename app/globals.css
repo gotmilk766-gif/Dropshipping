@@ -190,8 +190,26 @@ h4,
   transform: scale(1.05);
 }
 
+/* Floating accent dots in the 3D hero (HeroBand3D) */
+@keyframes hero3d-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+.hero3d-float {
+  animation: hero3d-float 6s var(--ease-out) infinite;
+  will-change: transform;
+}
+
 /* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
+  .hero3d-float {
+    animation: none !important;
+  }
   [data-reveal] {
     opacity: 1 !important;
     transform: none !important;

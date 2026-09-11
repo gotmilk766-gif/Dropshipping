@@ -1,6 +1,6 @@
 "use client";
 
-import HeroBand from "@/components/HeroBand";
+import HeroBand from "@/components/HeroBand3D";
 import MarqueeBand from "@/components/MarqueeBand";
 import FeelingSection from "@/components/FeelingSection";
 import ServicesBand from "@/components/ServicesBand";
