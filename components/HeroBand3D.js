@@ -8,9 +8,10 @@ import RollText from "./motion/RollText";
 import SplitHeading from "./motion/SplitHeading";
 
 // ── Swap this for a hosted .glb of one of your real 3D-print products.
-//    Uses <model-viewer>'s CORS-safe sample as a placeholder for now.
+//    Uses <model-viewer>'s CORS-safe sample (a printed-toy-style robot) as a
+//    placeholder for now.
 const MODEL_SRC =
-  "https://modelviewer.dev/shared-assets/models/Astronaut.glb";
+  "https://modelviewer.dev/shared-assets/models/RobotExpressive.glb";
 
 // model-viewer is a web component loaded once from a CDN. Kept out of the
 // bundle so the hero renders instantly and the 3D layer hydrates after.

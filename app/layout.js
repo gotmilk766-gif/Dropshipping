@@ -1,4 +1,4 @@
-import { Fraunces, Outfit } from "next/font/google";
+import { Space_Grotesk, Manrope } from "next/font/google";
 import "./globals.css";
 import "lenis/dist/lenis.css";
 import Navbar from "@/components/Navbar";
@@ -8,16 +8,19 @@ import Preloader from "@/components/Preloader";
 import SmoothScroll from "@/components/SmoothScroll";
 import { CartProvider } from "@/context/CartContext";
 
-const fraunces = Fraunces({
+// Display face: Space Grotesk (grotesk, techy, suits 3D/print). Text face:
+// Manrope. Both exposed under the existing --font-heading / --font-body vars
+// so every component picks them up with no per-component changes.
+const spaceGrotesk = Space_Grotesk({
   variable: "--font-heading",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "900"],
+  weight: ["500", "600", "700"],
 });
 
-const outfit = Outfit({
+const manrope = Manrope({
   variable: "--font-body",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata = {
@@ -37,7 +40,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${outfit.variable} h-full antialiased`}
+      className={`${spaceGrotesk.variable} ${manrope.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <CartProvider>
